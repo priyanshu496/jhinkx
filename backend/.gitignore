@@ -1,0 +1,52 @@
+# =========================
+# Go specific
+# =========================
+# Ignore compiled binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignore test output and coverage files
+*.test
+*.out
+coverage.html
+
+# Ignore vendor folder (if you decide to use 'go mod vendor' later)
+/vendor/
+
+# Go workspace file (used for local multi-module development)
+go.work
+go.work.sum
+
+# =========================
+# Environment Variables
+# =========================
+# NEVER commit your secrets!
+.env
+.env.*
+!.env.example 
+
+# =========================
+# IDE and OS specific
+# =========================
+# VS Code
+.vscode/
+
+# JetBrains (GoLand, IntelliJ)
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# =========================
+# Logs and temporary files
+# =========================
+*.log
+/tmp/
