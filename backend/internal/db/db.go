@@ -26,8 +26,8 @@ func InitDB(databaseURL string) {
 	// If the structs have new fields, add those columns to the tables."
 	err = DB.AutoMigrate(
 		&models.User{},
-		&models.Group{},
-		&models.GroupMember{},
+		&models.Space{},
+		&models.SpaceMember{},  
 		&models.Message{},
 	)
 	if err != nil {

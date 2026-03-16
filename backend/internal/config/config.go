@@ -14,6 +14,7 @@ type AppConfig struct {
 	DatabaseURL  string
 	KafkaBroker  string
 	RedisURL     string
+	JWTSecret   string
 }
 
 // Load reads the .env file and grabs the variables from the system.
@@ -33,6 +34,7 @@ func Load() *AppConfig {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		KafkaBroker: os.Getenv("KAFKA_BROKER"),
 		RedisURL:    os.Getenv("REDIS_URL"),
+		JWTSecret:   getEnv("JWT_SECRET", "default-secret-key"),
 	}
 }
 
