@@ -51,6 +51,12 @@ func main() {
 		// These routes will now verify the JWT token before running!
 		apiRoutes.GET("/users/me", api.GetCurrentUser)
 		apiRoutes.PUT("/users/settings", api.UpdatePreferences)
+		// Space routes
+		apiRoutes.GET("/spaces", api.GetUserSpaces)
+		apiRoutes.GET("/spaces/:id", api.GetSpaceDetails)
+		// Chat History and Consensus Delete
+		apiRoutes.GET("/spaces/:id/messages", api.GetSpaceMessages)
+		apiRoutes.POST("/spaces/:id/vote-delete", api.VoteDeleteSpace)
 	}
 	// 5. Start the server
 	fmt.Printf("Starting Teambuilder API on port: %s\n", cfg.Port)
