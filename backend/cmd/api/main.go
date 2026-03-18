@@ -7,8 +7,8 @@ import (
 	"github.com/priyanshu496/jhinkx.git/internal/api"
 	"github.com/priyanshu496/jhinkx.git/internal/config"
 	"github.com/priyanshu496/jhinkx.git/internal/db" // Import our new db package
-
 	"github.com/gin-gonic/gin"
+	"github.com/priyanshu496/jhinkx.git/internal/kafka"
 )
 
 func main() {
@@ -18,7 +18,8 @@ func main() {
 	// 2. Initialize the Database connection
 	// We pass the DatabaseURL we loaded from the .env file into our new InitDB function
 	db.InitDB(cfg.DatabaseURL)
-
+	kafka.InitProducer(cfg)
+	kafka.InitConsumer(cfg)
 	// 3. Initialize the Gin router
 	router := gin.Default()
 
@@ -42,11 +43,11 @@ func main() {
 		authRoutes.POST("/signup", api.Signup)
 		authRoutes.POST("/signin", api.Signin)
 	}
-	
+
 	// --- PROTECTED ROUTES ---
 	// We group everything under /api and apply the AuthMiddleware
 	apiRoutes := router.Group("/api")
-	apiRoutes.Use(api.AuthMiddleware()) 
+	apiRoutes.Use(api.AuthMiddleware())
 	{
 		// These routes will now verify the JWT token before running!
 		apiRoutes.GET("/users/me", api.GetCurrentUser)
@@ -57,6 +58,7 @@ func main() {
 		// Chat History and Consensus Delete
 		apiRoutes.GET("/spaces/:id/messages", api.GetSpaceMessages)
 		apiRoutes.POST("/spaces/:id/vote-delete", api.VoteDeleteSpace)
+		apiRoutes.POST("/spaces/match", api.RequestMatch)
 	}
 	// 5. Start the server
 	fmt.Printf("Starting Teambuilder API on port: %s\n", cfg.Port)

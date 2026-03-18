@@ -1,11 +1,13 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/priyanshu496/jhinkx.git/internal/db"
+	"github.com/priyanshu496/jhinkx.git/internal/kafka"
 	"github.com/priyanshu496/jhinkx.git/internal/models"
 )
 
@@ -16,8 +18,8 @@ func GetUserSpaces(c *gin.Context) {
 
 	// 2. Query the junction table (SpaceMembers) to find their spaces
 	var spaceMembers []models.SpaceMember
-	
-	// We use GORM's Preload("Space") to automatically grab the actual Space details 
+
+	// We use GORM's Preload("Space") to automatically grab the actual Space details
 	// along with the membership record in a single database query!
 	if err := db.DB.Preload("Space").Where("user_id = ?", userID).Find(&spaceMembers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch spaces"})
@@ -37,7 +39,7 @@ func GetUserSpaces(c *gin.Context) {
 func GetSpaceDetails(c *gin.Context) {
 	// 1. Grab the ID from the URL (e.g., /api/spaces/1234-5678)
 	spaceID := c.Param("id")
-	
+
 	// Grab the logged-in user's ID
 	userID, _ := c.Get("userID")
 
@@ -124,16 +126,16 @@ func VoteDeleteSpace(c *gin.Context) {
 
 	// Count total members in the space
 	db.DB.Model(&models.SpaceMember{}).Where("space_id = ?", spaceID).Count(&totalMembers)
-	
+
 	// Count how many of those members have voted "yes"
 	db.DB.Model(&models.SpaceMember{}).Where("space_id = ? AND voted_to_delete = ?", spaceID, true).Count(&deleteVotes)
 
 	// 4. If the votes match the total members, delete the space!
 	if totalMembers > 0 && totalMembers == deleteVotes {
-		// Because we set up our database models securely, deleting the space 
+		// Because we set up our database models securely, deleting the space
 		// will also safely handle the space_members and messages attached to it!
 		db.DB.Where("id = ?", spaceID).Delete(&models.Space{})
-		
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Consensus reached! The space has been permanently deleted.",
 			"deleted": true,
@@ -147,5 +149,42 @@ func VoteDeleteSpace(c *gin.Context) {
 		"total_votes":  deleteVotes,
 		"members_left": totalMembers - deleteVotes,
 		"deleted":      false,
+	})
+}
+
+// RequestMatch handles the matchmaking request by dropping a ticket into Kafka
+func RequestMatch(c *gin.Context) {
+	// 1. Get the secure user ID from the JWT token
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// 2. Define what we expect the frontend to send us
+	var reqBody struct {
+		PreferredGroupSize int `json:"preferred_group_size" binding:"required,min=2,max=10"`
+	}
+
+	// 3. Parse the JSON from the frontend
+	if err := c.ShouldBindJSON(&reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request. Please specify a preferred_group_size between 2 and 10."})
+		return
+	}
+
+	// 4. THE MAGIC: Drop the ticket into our Kafka queue!
+	// (Note: we use a type assertion `userID.(string)` because gin context stores it as a generic interface)
+	err := kafka.PublishMatchRequest(userID.(string), reqBody.PreferredGroupSize)
+	if err != nil {
+		// If Kafka is down, we let the frontend know securely
+		log.Printf("[KAFKA ERROR] Failed to write message: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to enter matchmaking queue. Please try again later."})
+		return
+	}
+
+	// 5. Instantly reply to the user (StatusAccepted 202 means "we got your request and are working on it")
+	c.JSON(http.StatusAccepted, gin.H{
+		"message": "Successfully joined the matchmaking queue! Searching for a team...",
+		"status":  "searching",
 	})
 }
