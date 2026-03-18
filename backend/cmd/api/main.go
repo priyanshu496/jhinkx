@@ -9,6 +9,8 @@ import (
 	"github.com/priyanshu496/jhinkx.git/internal/db" // Import our new db package
 	"github.com/gin-gonic/gin"
 	"github.com/priyanshu496/jhinkx.git/internal/kafka"
+	"github.com/priyanshu496/jhinkx.git/internal/redis"
+	"github.com/priyanshu496/jhinkx.git/internal/ws"
 )
 
 func main() {
@@ -20,6 +22,9 @@ func main() {
 	db.InitDB(cfg.DatabaseURL)
 	kafka.InitProducer(cfg)
 	kafka.InitConsumer(cfg)
+	redis.InitRedis()
+	chatHub := ws.NewHub()
+    go chatHub.Run()
 	// 3. Initialize the Gin router
 	router := gin.Default()
 
@@ -60,6 +65,10 @@ func main() {
 		apiRoutes.POST("/spaces/:id/vote-delete", api.VoteDeleteSpace)
 		apiRoutes.POST("/spaces/match", api.RequestMatch)
 	}
+
+	router.GET("/ws/spaces/:id", func(c *gin.Context) {
+        ws.ServeWS(chatHub, c)
+    })
 	// 5. Start the server
 	fmt.Printf("Starting Teambuilder API on port: %s\n", cfg.Port)
 

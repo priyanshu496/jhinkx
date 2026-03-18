@@ -20,7 +20,7 @@ func InitDB(databaseURL string) {
 	}
 
 	log.Println("Successfully connected to the PostgreSQL database!")
-
+	
 	// --- NEW CODE: Auto Migration ---
 	// This tells GORM: "Look at these structs. If tables for them don't exist, create them. 
 	// If the structs have new fields, add those columns to the tables."
