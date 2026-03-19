@@ -37,7 +37,6 @@ type Client struct {
 }
 
 // readPump pumps messages FROM the websocket connection TO the hub.
-// readPump pumps messages FROM the websocket connection TO the hub.
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -80,11 +79,18 @@ func (c *Client) readPump() {
 			continue
 		}
 
-		// 3. Convert the official database record (with ID and CreatedAt) back to JSON
-		broadcastBytes, _ := json.Marshal(newMsg)
+		// 3. FORCE lowercase JSON keys for the frontend
+		safeJSON := map[string]interface{}{
+			"user_id": c.userID,
+			"content": incoming.Content,
+		}
+		broadcastBytes, _ := json.Marshal(safeJSON)
 
-		// 4. Send it to the Hub to be broadcasted to everyone in the room!
-		c.hub.broadcast <- broadcastBytes
+		// 4. Send it to the Hub wrapped with the SpaceID!
+		c.hub.broadcast <- &BroadcastMessage{
+			SpaceID: c.spaceID,
+			Data:    broadcastBytes,
+		}
 	}
 }
 

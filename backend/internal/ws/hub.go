@@ -1,12 +1,18 @@
 package ws
 
+// BroadcastMessage wraps the JSON data with the specific SpaceID it belongs to
+type BroadcastMessage struct {
+	SpaceID string
+	Data    []byte
+}
+
 // Hub maintains the set of active clients and broadcasts messages to them.
 type Hub struct {
 	// Registered clients (the switchboard holding all the open cables)
 	clients map[*Client]bool
 
 	// Inbound messages from the clients waiting to be broadcast
-	broadcast chan []byte
+	broadcast chan *BroadcastMessage // Changed to our new struct
 
 	// Register requests from newly connecting clients
 	register chan *Client
@@ -18,7 +24,7 @@ type Hub struct {
 // NewHub creates a new Hub instance
 func NewHub() *Hub {
 	return &Hub{
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan *BroadcastMessage),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
@@ -42,15 +48,17 @@ func (h *Hub) Run() {
 
 		// 3. A NEW MESSAGE ARRIVED!
 		case message := <-h.broadcast:
-			// Loop through every connected user and send them the message
+			// ROOM ISOLATION: Only send to users in the exact same Space!
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-					// Message sent successfully!
-				default:
-					// If the send buffer is full/blocked, assume the connection is dead
-					close(client.send)
-					delete(h.clients, client)
+				if client.spaceID == message.SpaceID {
+					select {
+					case client.send <- message.Data:
+						// Message sent successfully!
+					default:
+						// If the send buffer is full/blocked, assume the connection is dead
+						close(client.send)
+						delete(h.clients, client)
+					}
 				}
 			}
 		}

@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/priyanshu496/jhinkx.git/internal/api"
 	"github.com/priyanshu496/jhinkx.git/internal/config"
 	"github.com/priyanshu496/jhinkx.git/internal/db" // Import our new db package
-	"github.com/gin-gonic/gin"
 	"github.com/priyanshu496/jhinkx.git/internal/kafka"
 	"github.com/priyanshu496/jhinkx.git/internal/redis"
 	"github.com/priyanshu496/jhinkx.git/internal/ws"
@@ -24,9 +26,18 @@ func main() {
 	kafka.InitConsumer(cfg)
 	redis.InitRedis()
 	chatHub := ws.NewHub()
-    go chatHub.Run()
+	go chatHub.Run()
 	// 3. Initialize the Gin router
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // Allow your Next.js app
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// 4. Set up a health check route
 	router.GET("/health", func(c *gin.Context) {
@@ -67,8 +78,8 @@ func main() {
 	}
 
 	router.GET("/ws/spaces/:id", func(c *gin.Context) {
-        ws.ServeWS(chatHub, c)
-    })
+		ws.ServeWS(chatHub, c)
+	})
 	// 5. Start the server
 	fmt.Printf("Starting Teambuilder API on port: %s\n", cfg.Port)
 
